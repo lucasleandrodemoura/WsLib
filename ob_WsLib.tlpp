@@ -1,0 +1,283 @@
+#Include "Protheus.ch"
+#include "rwmake.ch"
+#include "topconn.ch"
+#include "TBICONN.CH"
+ 
+
+
+//LcGetTitulo(reference_id) : Busca um título
+//LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador) : Cria um título
+//LCUpdateTitulo(reference_id,vencimento,valor) : Atualiza um título
+//Função teste
+User Function OBLibertWS
+    //LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador) : Cria um título
+    U_LCCreateTitulo('PA09869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','26226403000147','CNPJ','39462426000100','CNPJ')
+    //LcGetTitulo(reference_id) : Busca um título
+    msgalert(U_LcGetTitulo('PA09869896110123601'))
+    //LCUpdateTitulo(reference_id,vencimento,valor)
+    U_LCUpdateTitulo('PA09869896110123601','2022-02-02','2.66')
+Return
+
+
+
+
+
+
+/*
+Função: LcGetTitulo
+Obtenção de título
+Obtém um título usando seu identificador único na Liber Connect.
+@author : Lucas Leandro de Moura <lucas@8bit.inf.br>
+@date : 2021-12-21
+@param reference_id : Identificador único do título no sistema do cliente. 
+Usado para identificar envio de títulos duplicados. 
+Aceita caracteres alfabéticos, dígitos e os caracteres especiais ponto (.), til (~), underscore (_) e hífem (-). 
+Barras (/) não são permitidas para esse identificador
+@retorno: Irá retornar um array com o conteúdo retornado ou uma string de erro
+@erros:
+404 Not Found: O item requisitado não foi encontrado verifique o reference_id
+403 : O parâmetro LC_PROGRAM ou LC_DOCUMEN devem estar errado
+401 : Token inválido valide informação no LCgetToken()
+u_showarray(U_LcGetTitulo('PA09869896110123601'))
+*/
+User Function LcGetTitulo(reference_id)
+    Local cUrl := webserviceURL()
+    Local oRestClient := FWRest():New(cUrl)
+    Local cToken := LCgetToken()
+    Local aHeader := {}
+    Local dados := ""
+    Local JsonObject
+    Local retorno := {}
+    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
+    DEFAULT reference_id := ""
+    
+        // inclui o campo Authorization no formato <usuario>:<senha> na base64
+        Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
+        
+        
+        If !empty(reference_id)
+            urlPath+="/"+reference_id
+        endif
+
+        oRestClient:setPath(urlPath)
+        If oRestClient:Get(aHeader)
+            dados := oRestClient:GetResult()
+            JsonObject := JSonObject():New()
+            cErr  := JsonObject:fromJson(dados)
+
+            If !empty(cErr)
+                MsgStop(cErr,"JSON PARSE ERROR")
+                Return
+            Endif
+
+            retorno := JsonObject
+
+            FreeObj(JsonObject)
+
+            Return retorno
+            
+        Else
+            Return oRestClient:GetLastError()
+        EndIf
+        
+
+Return NIL
+
+
+
+
+/*
+Funcão LCCreateTitulo
+@descricao: Insere um novo título a ser pago pelo Sacado, a fim de que possa ser ofertado para antecipação. O documento fiscal, se existir, é inserido conjuntamente ao título.
+@author Lucas Moura <lucas@8bit.inf.br>
+@param reference_id <caracteres>: Até 100 caracteres. Identificador único do título no sistema do cliente. Usado para identificar envio de títulos duplicados. Aceita caracteres alfabéticos
+@param number <caracteres>: Até 100 caracteres. Número do título, incluindo parcela (se for o caso). Pode conter pontuação
+@param tipo <caracteres>: "MERCANTILE" "SERVICE" "TRANSPORT": Tipo do título. Valores aceitos:
+@param vencimento <caracteres>: Data do vencimento do título no formato YYYY-MM-DD
+@param valor <number>: Valor em R$
+@param fornecedor: Fornecedor dos bens ou serviços. CNPJ
+@param tipo_fornecedor: CNPJ ou CPF
+@param pagador: Sacado destinatário da cobrança. Pode ser o sacado matriz do programa ou uma filial. CNPJ ou CPF
+@param tipo_pagador: CNPJ ou CPF
+@examplo U_LCCreateTitulo('PA09869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','26226403000147','CNPJ','39462426000100','CNPJ')
+*/
+User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador)
+
+    Local cUrl := webserviceURL()
+    Local oRestClient := FWRest():New(cUrl)
+    Local cToken := LCgetToken()
+    Local aHeader := {}
+    Local oDados := NIL
+    Local bObject := {|| JsonObject():New()}
+    Local oJson   := Eval(bObject)
+    Local cBody := ""
+    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
+    
+    Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
+    aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
+    AAdd(aHeader, "Accept: */*")
+
+
+
+    oRestClient:setPath(urlPath)
+    
+     oJson["reference_id"] := reference_id
+     oJson["number"] := number
+     oJson["type"] := tipo
+     oJson["due_date"] := vencimento
+     oJson["face_value"] := Eval(bObject)
+     oJson["face_value"]["currency"] := "BRL"
+     oJson["face_value"]["value"] := val(valor)
+     oJson["supplier"] := Eval(bObject)
+     oJson["supplier"]["document"] := Eval(bObject)
+     oJson["supplier"]["document"]["type"]:= tipo_fornecedor
+     oJson["supplier"]["document"]["number"]:= fornecedor
+     oJson["payer"] := Eval(bObject)
+     oJson["payer"]["document"] := Eval(bObject)
+     oJson["payer"]["document"]["type"]:= tipo_pagador
+     oJson["payer"]["document"]["number"]:= pagador
+    
+    
+    cBody := oJson:ToJson()
+    
+    oRestClient:SetPostParams("body")
+    oRestClient:SetPostParams(cBody)
+     
+     
+    If oRestClient:Post(aHeader)
+       
+            FwJSONDeserialize(oRest:GetResult(), @oDados)
+            Return oDados
+            
+    Else
+            
+            Return oRestClient:GetLastError()
+            
+    EndIf
+
+Return
+
+
+
+
+
+
+/*
+Funcão LCUpdateTitulo
+@descricao: Atualiza título a ser pago pelo Sacado, a fim de que possa ser ofertado para antecipação. O documento fiscal, se existir, é inserido conjuntamente ao título.
+@author Lucas Moura <lucas@8bit.inf.br>
+@param reference_id <caracteres>: Até 100 caracteres. Identificador único do título no sistema do cliente. Usado para identificar envio de títulos duplicados. Aceita caracteres alfabéticos
+@param vencimento <caracteres>: Data do vencimento do título no formato YYYY-MM-DD
+@param valor <number>: Valor em R$
+*/
+User Function LCUpdateTitulo(reference_id,vencimento,valor)
+
+    Local cUrl := webserviceURL()
+    Local oRestClient := FWRest():New(cUrl)
+    Local cToken := LCgetToken()
+    Local aHeader := {}
+    Local oDados := NIL
+    Local bObject := {|| JsonObject():New()}
+    Local oJson   := Eval(bObject)
+    Local cBody := ""
+    Local original := U_LcGetTitulo(reference_id)
+    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices/"+reference_id
+    
+
+    If original["status"]="BLOCKED"
+
+        Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
+        aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
+        AAdd(aHeader, "Accept: */*")
+
+        
+
+        oRestClient:setPath(urlPath)
+        
+        oJson["reference_id"] := reference_id
+        oJson["number"] := original['number']
+        oJson["type"] := original['type']
+        oJson["due_date"] := vencimento
+        oJson["face_value"] := Eval(bObject)
+        oJson["face_value"]["currency"] := "BRL"
+        oJson["face_value"]["value"] := val(valor)
+        oJson["supplier"] := Eval(bObject)
+        oJson["supplier"]["document"] := Eval(bObject)
+        oJson["supplier"]["document"]["type"]:= original["supplier"]["document"]["type"]
+        oJson["supplier"]["document"]["number"]:= original["supplier"]["document"]["number"]
+        oJson["payer"] := Eval(bObject)
+        oJson["payer"]["document"] := Eval(bObject)
+        oJson["payer"]["document"]["type"]:= original["payer"]["document"]["type"]
+        oJson["payer"]["document"]["number"]:= original["payer"]["document"]["number"]
+        
+        
+        cBody := oJson:ToJson()
+        
+        oRestClient:SetPostParams("body")
+        oRestClient:SetPostParams(cBody)
+        
+        
+        If oRestClient:Put(aHeader)
+        
+                FwJSONDeserialize(oRest:GetResult(), @oDados)
+                Return oDados
+                
+        Else
+                
+                Return oRestClient:GetLastError()
+                
+        EndIf
+
+    else
+
+        Return {"Não é possível pois o título não se encontra bloqueado",original}
+
+    endif
+
+Return
+
+
+
+/**Gera o token
+*/
+static function LCgetToken()
+    Local token := ""
+    Local urlAuth := "https://auth.connect.staging.libercapital.com.br/"
+    Local aHeader := {}
+    Local client_id := SuperGetMV('LC_CLIID', .F., '') 
+    Local client_secret := SuperGetMV('LC_CLISEC', .F., '') 
+    Local oJSON   := NIL
+    If SuperGetMV('LC_ENV', .F., .F.) 
+        urlAuth := "https://auth.connect.libercapital.com.br/"
+    endif
+    oRest := FWRest():New(urlAuth)
+    oRest:SetPath('oauth2/token')
+    aAdd(aHeader, 'Content-Type: application/x-www-form-urlencoded')
+    cSend := 'grant_type=client_credentials&client_id='+client_id+'&client_secret='+client_secret
+    oRest:SetPostParams(cSend)
+    oRest:Post(aHeader)
+    dados := FwJSONDeserialize(oRest:GetResult(), @oJSON) 
+    token := oJSON["access_token"]
+return token
+
+
+
+Static Function webserviceURL()
+    
+    Local cUrl := SuperGetMV('LC_URLHOMO', .F., '')
+
+    If SuperGetMV('LC_ENV', .F., .F.) 
+        cUrl := SuperGetMV('LC_URLPROD', .F., '')
+    ENDIF
+
+    If empty(rtrim(cUrl))
+        Aviso('Atenção','Favor configurar os parâmetros LC_URLHOMO, LC_ENV, LC_URLPROD')
+    endif
+
+Return cUrl
+
+
+
+
+
+
