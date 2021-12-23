@@ -1,6 +1,6 @@
 # WsLib
 
-<b>Parâmetros necessários que precisam ser criados e preenchidos<b><br/>
+<b>Parâmetros necessários que precisam ser criados e preenchidos</b><br/>
 LC_CLIID : Client ID<br />
 LC_CLISEC : Chave secreta cliente<br />
 LC_ENV : Produção ou homologação<br />
