@@ -5,23 +5,6 @@
  
 
 
-//LcGetTitulo(reference_id) : Busca um título
-//LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador) : Cria um título
-//LCUpdateTitulo(reference_id,vencimento,valor) : Atualiza um título
-//Função teste
-User Function OBLibertWS
-    //LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador) : Cria um título
-    U_LCCreateTitulo('PA09869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','26226403000147','CNPJ','39462426000100','CNPJ')
-    //LcGetTitulo(reference_id) : Busca um título
-    msgalert(U_LcGetTitulo('PA09869896110123601'))
-    //LCUpdateTitulo(reference_id,vencimento,valor)
-    U_LCUpdateTitulo('PA09869896110123601','2022-02-02','2.66')
-Return
-
-
-
-
-
 
 /*
 Função: LcGetTitulo

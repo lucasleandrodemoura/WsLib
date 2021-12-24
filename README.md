@@ -35,5 +35,33 @@ Retorno
 [18] => Toda a chave <br>
 <br />
 
+
+<br>
+LCCreateTitulo
+<br>
+Retorno <br>
+Se tiver sucesso (202)<br>
+[1] = Código do status da operação <br>
+[2] = Ultimo status de atualização<br>
+[3] = Erros da ultima atualização<br>
+[4] = Código ID gravado<br>
+[5] = String completa de retorno que pode ser quebrada com JsonObject:fromJson<br>
+<br>
+Se tiver dado erro<br>
+[1] = Código do status da operação <br>
+[2] = Ultimo status de atualização<br>
+[3] = Erros da ultima atualização<br>
+[4] = String completa de retorno que pode ser quebrada com JsonObject:fromJson<br>
+
+
+
+<br>
+LCUpdateTitulo<br>
+Retorno<br>
+[1] = Código do status da operação<br>
+[2] = Array com erros apresentados<br>
+[3] = String completa de retorno que pode ser quebrada com JsonObject:fromJson<br>
+
+
 Desenvolvedor<br/>
 Lucas Leandro de Moura - <a href=mailto:lucas@8bit.inf.br>lucas@8bit.inf.br</a>
