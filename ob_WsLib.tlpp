@@ -121,7 +121,7 @@ Funcão LCCreateTitulo
 @param tipo_fornecedor: CNPJ ou CPF
 @param pagador: Sacado destinatário da cobrança. Pode ser o sacado matriz do programa ou uma filial. CNPJ ou CPF
 @param tipo_pagador: CNPJ ou CPF
-@examplo U_LCCreateTitulo('PA09869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','26226403000147','CNPJ','39462426000100','CNPJ')
+@examplo U_LCCreateTitulo('P209869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','33592510000154','CNPJ','15484145000182','CNPJ')
 */
 User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador)
 
@@ -133,6 +133,8 @@ User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedo
     Local bObject := {|| JsonObject():New()}
     Local oJson   := Eval(bObject)
     Local cBody := ""
+    Local status := ""
+    Local retorno := {}
     Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
     
     Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
@@ -166,18 +168,35 @@ User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedo
     oRestClient:SetPostParams(cBody)
      
      
-    If oRestClient:Post(aHeader)
-       
-            FwJSONDeserialize(oRest:GetResult(), @oDados)
-            Return oDados
-            
-    Else
-            
-            Return oRestClient:GetLastError()
-            
-    EndIf
+   oRestClient:Post(aHeader)
+   FwJSONDeserialize(oRestClient:GetResult(), @oDados)
+   status := left(cvaltochar(oRestClient:GetLastError()),3)
+   If status="202"
+        
+        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+        Aadd(retorno, oDados["status"]) //Status ultima atualização
+        Aadd(retorno, oDados["last_change_request"]["status"]) //Status ultima atualização
+        Aadd(retorno, oDados["last_change_request"]["errors"]) //Erros ultima atualização
+        Aadd(retorno, oDados["reference_id"]) //Referend ID
+        Aadd(retorno, oRestClient:GetResult()) //Array completo
 
-Return
+   else
+        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+        Aadd(retorno, oDados["status"]) //Status ultima atualização
+        Aadd(retorno, oDados["error"]) //Status ultima atualização
+        Aadd(retorno, oRestClient:GetResult()) //Array completo
+   endif
+
+
+
+
+
+
+
+            
+   
+
+Return retorno
 
 
 
@@ -202,6 +221,8 @@ User Function LCUpdateTitulo(reference_id,vencimento,valor)
     Local bObject := {|| JsonObject():New()}
     Local oJson   := Eval(bObject)
     Local cBody := ""
+    Local status := ""
+    Local reetorno := ""
     Local original := U_LcGetTitulo(reference_id)
     Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices/"+reference_id
     
@@ -239,16 +260,18 @@ User Function LCUpdateTitulo(reference_id,vencimento,valor)
         oRestClient:SetPostParams(cBody)
         
         
-        If oRestClient:Put(aHeader)
-        
-                FwJSONDeserialize(oRest:GetResult(), @oDados)
-                Return oDados
+        FwJSONDeserialize(oRestClient:GetResult(), @oDados)
+        status := left(cvaltochar(oRestClient:GetLastError()),3)
+       
                 
-        Else
-                
-                Return oRestClient:GetLastError()
-                
-        EndIf
+        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+        Aadd(retorno, oDados["error"]) //Status ultima atualização
+        Aadd(retorno, oRestClient:GetResult()) //Array completo
+
+
+        return retorno
+
+
 
     else
 
