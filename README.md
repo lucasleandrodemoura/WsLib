@@ -1,5 +1,10 @@
 # WsLib
 
+<br>
+
+<a href=https://api.connect.libercapital.com.br/v1/buyers/docs#operation/submit_invoice">https://api.connect.libercapital.com.br/v1/buyers/docs#operation/submit_invoice</a>
+
+<br>
 <b>Parâmetros necessários que precisam ser criados e preenchidos</b><br/>
 LC_CLIID : Client ID<br />
 LC_CLISEC : Chave secreta cliente<br />
