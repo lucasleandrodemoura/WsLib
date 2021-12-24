@@ -70,7 +70,29 @@ User Function LcGetTitulo(reference_id)
                 Return
             Endif
 
-            retorno := JsonObject
+            
+            Aadd(retorno, JsonObject["id"])
+            Aadd(retorno, JsonObject["status"])
+            Aadd(retorno, JsonObject["reference_id"])
+            Aadd(retorno, JsonObject["number"])
+            Aadd(retorno, JsonObject["last_change_request"]["status"])
+            Aadd(retorno, JsonObject["last_change_request"]["errors"])
+            Aadd(retorno, JsonObject["type"])
+            Aadd(retorno, JsonObject["due_date"])
+            Aadd(retorno, JsonObject["face_value"]["currency"])
+            Aadd(retorno, JsonObject["face_value"]["value"])
+            Aadd(retorno, JsonObject["supplier"]["document"]["type"])
+            Aadd(retorno, JsonObject["supplier"]["document"]["number"])
+            Aadd(retorno, JsonObject["supplier"]["name"])
+            Aadd(retorno, JsonObject["payer"]["document"]["type"])
+            Aadd(retorno, JsonObject["payer"]["document"]["number"])
+            Aadd(retorno, JsonObject["payer"]["name"])
+            Aadd(retorno, JsonObject["last_trade"])        
+            Aadd(retorno, JsonObject)        
+
+            
+
+
 
             FreeObj(JsonObject)
 
