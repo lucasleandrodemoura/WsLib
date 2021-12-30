@@ -2,8 +2,7 @@
 #include "rwmake.ch"
 #include "topconn.ch"
 #include "TBICONN.CH"
- 
-
+#include "colors.ch"
 
 
 /*
@@ -24,67 +23,105 @@ Barras (/) não são permitidas para esse identificador
 u_showarray(U_LcGetTitulo('PA09869896110123601'))
 */
 User Function LcGetTitulo(reference_id)
-    Local cUrl := webserviceURL()
-    Local oRestClient := FWRest():New(cUrl)
-    Local cToken := LCgetToken()
-    Local aHeader := {}
-    Local dados := ""
-    Local JsonObject
-    Local retorno := {}
-    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
-    DEFAULT reference_id := ""
-    
-        // inclui o campo Authorization no formato <usuario>:<senha> na base64
-        Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
-        
-        
-        If !empty(reference_id)
-            urlPath+="/"+reference_id
-        endif
+	Local cUrl := webserviceURL()
+	Local oRestClient := FWRest():New(cUrl)
+	Local cToken := LCgetToken()
+	Local aHeader := {}
+	Local dados := ""
+	Local JsonObject
+	Local retorno := {}
+	Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
+	DEFAULT reference_id := ""
 
-        oRestClient:setPath(urlPath)
-        If oRestClient:Get(aHeader)
-            dados := oRestClient:GetResult()
-            JsonObject := JSonObject():New()
-            cErr  := JsonObject:fromJson(dados)
-
-            If !empty(cErr)
-                MsgStop(cErr,"JSON PARSE ERROR")
-                Return
-            Endif
-
-            
-            Aadd(retorno, JsonObject["id"])
-            Aadd(retorno, JsonObject["status"])
-            Aadd(retorno, JsonObject["reference_id"])
-            Aadd(retorno, JsonObject["number"])
-            Aadd(retorno, JsonObject["last_change_request"]["status"])
-            Aadd(retorno, JsonObject["last_change_request"]["errors"])
-            Aadd(retorno, JsonObject["type"])
-            Aadd(retorno, JsonObject["due_date"])
-            Aadd(retorno, JsonObject["face_value"]["currency"])
-            Aadd(retorno, JsonObject["face_value"]["value"])
-            Aadd(retorno, JsonObject["supplier"]["document"]["type"])
-            Aadd(retorno, JsonObject["supplier"]["document"]["number"])
-            Aadd(retorno, JsonObject["supplier"]["name"])
-            Aadd(retorno, JsonObject["payer"]["document"]["type"])
-            Aadd(retorno, JsonObject["payer"]["document"]["number"])
-            Aadd(retorno, JsonObject["payer"]["name"])
-            Aadd(retorno, JsonObject["last_trade"])        
-            Aadd(retorno, JsonObject)        
-
-            
+	// inclui o campo Authorization no formato <usuario>:<senha> na base64
+	Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
 
 
+	If !empty(reference_id)
+		urlPath+="/"+reference_id
+	endif
 
-            FreeObj(JsonObject)
+	oRestClient:setPath(urlPath)
+	If oRestClient:Get(aHeader)
+		dados := oRestClient:GetResult()
+		JsonObject := JSonObject():New()
+		cErr  := JsonObject:fromJson(dados)
 
-            Return retorno
-            
-        Else
-            Return oRestClient:GetLastError()
-        EndIf
-        
+		If !empty(cErr)
+			MsgStop(cErr,"JSON PARSE ERROR")
+			Return
+		Endif
+
+		Aadd(retorno, PrintJson(JsonObject))
+		Aadd(retorno, JsonObject["id"])
+		Aadd(retorno, JsonObject["status"])
+		Aadd(retorno, JsonObject["reference_id"])
+		Aadd(retorno, JsonObject["number"])
+		Aadd(retorno, JsonObject["last_change_request"]["status"])
+		Aadd(retorno, JsonObject["last_change_request"]["errors"])
+		Aadd(retorno, JsonObject["type"])
+		Aadd(retorno, JsonObject["due_date"])
+		Aadd(retorno, JsonObject["face_value"]["currency"])
+		Aadd(retorno, JsonObject["face_value"]["value"])
+		Aadd(retorno, JsonObject["supplier"]["document"]["type"])
+		Aadd(retorno, JsonObject["supplier"]["document"]["number"])
+		Aadd(retorno, JsonObject["supplier"]["name"])
+		Aadd(retorno, JsonObject["payer"]["document"]["type"])
+		Aadd(retorno, JsonObject["payer"]["document"]["number"])
+		Aadd(retorno, JsonObject["payer"]["name"])
+		Aadd(retorno, JsonObject["last_trade"])
+		
+
+        //Trata a mensagem de status
+        DO CASE
+         CASE oDados["status"] == "null"
+            Aadd(retorno,"A inserção do título ainda está em processamento. O título ainda não está visível na Plataforma Liber") //Referend ID
+         CASE oDados["status"] == "INSERTED"
+            Aadd(retorno,"Título inserido na plataforma, mas ainda não confirmado pelo cliente (sacado)") //Referend ID
+        CASE oDados["status"] == "PENDING"
+            Aadd(retorno,"Título marcado pelo cliente (sacado) como pendente, pois o produto/serviço não foi entregue/realizado") //Referend ID    
+        CASE oDados["status"] == "CONFIRMED"
+              Aadd(retorno,"Título confirmado pelo cliente (sacado), porém com alguma pendência cadastral do lado do fornecedor") //Referend ID
+        CASE oDados["status"] == "VERIFIED"
+              Aadd(retorno,"Título confirmado pelo cliente (sacado) e sem pendências. Títulos nesse status são apresentados para os fornecedores. Vale ressaltar que o processo de confirmação manual pelo sacado pode ou não existir, a depender da escolha do cliente") //Referend ID
+        CASE oDados["status"] == "BLOCKED"
+              Aadd(retorno,"Título bloqueado pelo cliente (sacado) para que não apareça ao fornecedor") //Referend ID
+        CASE oDados["status"] == "UNDER_NEGOTIATION"
+              Aadd(retorno,"Título em negociação. O fornecedor solicitou o financiamento do título e estamos encaminhando-o para um financiador conectado à nossa Plataforma") //Referend ID
+        CASE oDados["status"] == "SOLD"
+              Aadd(retorno,"Título vendido para um financiador") //Referend ID
+        CASE oDados["status"] == "EXPIRED"
+              Aadd(retorno,"O título venceu e, portanto, não pode mais ser financiado") //Referend ID
+        OTHERWISE
+            Aadd(retorno,"") //Referend ID
+        ENDCASE
+
+        //Trata a mensagem do ultimo pedido de atualização
+        DO CASE
+         CASE oDados["last_change_request"]["status"] == "QUEUED"
+            Aadd(retorno," A inserção/alteração do título foi recebida pela Liber Connect. Essa operação ainda será validada antes de ser concretizada na plataforma Liber Capital") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "PROCESSING"
+            Aadd(retorno," Uma inserção/alteração dos dados do título está sendo processada pela Plataforma Liber") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "SUCCESS"
+            Aadd(retorno,"A última inserção/alteração dos dados do título foi aceita pela Plataforma Liber") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "FAIL"
+            Aadd(retorno,"A última inserção/alteração dos dados do título foi rejeitada pela Plataforma Liber. Veja o campo errors para obter detalhes sobre as inconsistências encontradas. Os dados do título são mantidos no último estado consistente encontrado.") //Referend ID
+        OTHERWISE
+            Aadd(retorno,"") //Referend ID
+        ENDCASE
+
+		PrintJson(JsonObject)
+
+
+
+		FreeObj(JsonObject)
+
+		Return retorno
+
+	Else
+		Return oRestClient:GetLastError()
+	EndIf
+
 
 Return NIL
 
@@ -104,80 +141,123 @@ Funcão LCCreateTitulo
 @param tipo_fornecedor: CNPJ ou CPF
 @param pagador: Sacado destinatário da cobrança. Pode ser o sacado matriz do programa ou uma filial. CNPJ ou CPF
 @param tipo_pagador: CNPJ ou CPF
+@param serieNF: Serie da nota fiscal que da lastro ao titulo
+@param numeroNF: Número da nota fiscal que da lastro ao titulo
+@param banco: CNPJ do Financiador pré-acordado para antecipação do título.
 @examplo U_LCCreateTitulo('P209869896110123601','0986989611','MERCANTILE','2022-01-01','1.00','33592510000154','CNPJ','15484145000182','CNPJ')
 */
-User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador)
+User Function LCCreateTitulo(reference_id,number,tipo,vencimento,valor,fornecedor,tipo_fornecedor,pagador,tipo_pagador,serieNF,numeroNF,banco)
 
-    Local cUrl := webserviceURL()
-    Local oRestClient := FWRest():New(cUrl)
-    Local cToken := LCgetToken()
-    Local aHeader := {}
-    Local oDados := NIL
-    Local bObject := {|| JsonObject():New()}
-    Local oJson   := Eval(bObject)
-    Local cBody := ""
-    Local status := ""
-    Local retorno := {}
-    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
-    
-    Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
-    aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
-    AAdd(aHeader, "Accept: */*")
+	Local cUrl := webserviceURL()
+	Local oRestClient := FWRest():New(cUrl)
+	Local cToken := LCgetToken()
+	Local aHeader := {}
+	Local oDados := NIL
+	Local bObject := {|| JsonObject():New()}
+	Local oJson   := Eval(bObject)
+	Local cBody := ""
+	Local status := ""
+	Local retorno := {}
+	Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices"
+
+	Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
+	aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
+	AAdd(aHeader, "Accept: /")
 
 
 
-    oRestClient:setPath(urlPath)
-    
-     oJson["reference_id"] := reference_id
-     oJson["number"] := number
-     oJson["type"] := tipo
-     oJson["due_date"] := vencimento
-     oJson["face_value"] := Eval(bObject)
-     oJson["face_value"]["currency"] := "BRL"
-     oJson["face_value"]["value"] := val(valor)
-     oJson["supplier"] := Eval(bObject)
-     oJson["supplier"]["document"] := Eval(bObject)
-     oJson["supplier"]["document"]["type"]:= tipo_fornecedor
-     oJson["supplier"]["document"]["number"]:= fornecedor
-     oJson["payer"] := Eval(bObject)
-     oJson["payer"]["document"] := Eval(bObject)
-     oJson["payer"]["document"]["type"]:= tipo_pagador
-     oJson["payer"]["document"]["number"]:= pagador
-    
-    
-    cBody := oJson:ToJson()
-    
-    oRestClient:SetPostParams("body")
-    oRestClient:SetPostParams(cBody)
-     
-     
-   oRestClient:Post(aHeader)
-   FwJSONDeserialize(oRestClient:GetResult(), @oDados)
-   status := left(cvaltochar(oRestClient:GetLastError()),3)
-   If status="202"
+	oRestClient:setPath(urlPath)
+
+	oJson["reference_id"] := reference_id
+	oJson["number"] := number
+	oJson["type"] := tipo
+	oJson["due_date"] := vencimento
+	oJson["face_value"] := Eval(bObject)
+	oJson["face_value"]["currency"] := "BRL"
+	oJson["face_value"]["value"] := valor
+	oJson["supplier"] := Eval(bObject)
+	oJson["supplier"]["document"] := Eval(bObject)
+	oJson["supplier"]["document"]["type"]:= tipo_fornecedor
+	oJson["supplier"]["document"]["number"]:= fornecedor
+	oJson["payer"] := Eval(bObject)
+	oJson["payer"]["document"] := Eval(bObject)
+	oJson["payer"]["document"]["type"]:= tipo_pagador
+	oJson["payer"]["document"]["number"]:= pagador
+    oJson["fiscal_document"] := Eval(bObject)
+    oJson["fiscal_document"]["series"] := Eval(serieNF)
+    oJson["fiscal_document"]["number"] := numeroNF
+
+    If !Empty(banco)
+        oJson["appointed_funder"] := Eval(bObject)
+        oJson["appointed_funder"]["document"] := Eval(bObject)
+	    oJson["appointed_funder"]["document"]["type"]:= "CNPJ"
+	    oJson["appointed_funder"]["document"]["number"]:= banco
+    endif
+
+
+	cBody := oJson:ToJson()
+
+	oRestClient:SetPostParams("body")
+	oRestClient:SetPostParams(cBody)
+
+
+	oRestClient:Post(aHeader)
+	FwJSONDeserialize(oRestClient:GetResult(), @oDados)
+	status := left(cvaltochar(oRestClient:GetLastError()),3)
+	If status="202"
+
+		Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+		Aadd(retorno, oDados["status"]) //Status ultima atualização
+		Aadd(retorno, oDados["last_change_request"]["status"]) //Status ultima atualização
+		Aadd(retorno, oDados["last_change_request"]["errors"]) //Erros ultima atualização
+		Aadd(retorno, oDados["reference_id"]) //Referend ID
+		Aadd(retorno, oRestClient:GetResult()) //Array completo
         
-        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
-        Aadd(retorno, oDados["status"]) //Status ultima atualização
-        Aadd(retorno, oDados["last_change_request"]["status"]) //Status ultima atualização
-        Aadd(retorno, oDados["last_change_request"]["errors"]) //Erros ultima atualização
-        Aadd(retorno, oDados["reference_id"]) //Referend ID
-        Aadd(retorno, oRestClient:GetResult()) //Array completo
+        //Trata a mensagem de status
+        DO CASE
+         CASE oDados["status"] == "null"
+            Aadd(retorno,"A inserção do título ainda está em processamento. O título ainda não está visível na Plataforma Liber") //Referend ID
+         CASE oDados["status"] == "INSERTED"
+            Aadd(retorno,"Título inserido na plataforma, mas ainda não confirmado pelo cliente (sacado)") //Referend ID
+        CASE oDados["status"] == "PENDING"
+            Aadd(retorno,"Título marcado pelo cliente (sacado) como pendente, pois o produto/serviço não foi entregue/realizado") //Referend ID    
+        CASE oDados["status"] == "CONFIRMED"
+              Aadd(retorno,"Título confirmado pelo cliente (sacado), porém com alguma pendência cadastral do lado do fornecedor") //Referend ID
+        CASE oDados["status"] == "VERIFIED"
+              Aadd(retorno,"Título confirmado pelo cliente (sacado) e sem pendências. Títulos nesse status são apresentados para os fornecedores. Vale ressaltar que o processo de confirmação manual pelo sacado pode ou não existir, a depender da escolha do cliente") //Referend ID
+        CASE oDados["status"] == "BLOCKED"
+              Aadd(retorno,"Título bloqueado pelo cliente (sacado) para que não apareça ao fornecedor") //Referend ID
+        CASE oDados["status"] == "UNDER_NEGOTIATION"
+              Aadd(retorno,"Título em negociação. O fornecedor solicitou o financiamento do título e estamos encaminhando-o para um financiador conectado à nossa Plataforma") //Referend ID
+        CASE oDados["status"] == "SOLD"
+              Aadd(retorno,"Título vendido para um financiador") //Referend ID
+        CASE oDados["status"] == "EXPIRED"
+              Aadd(retorno,"O título venceu e, portanto, não pode mais ser financiado") //Referend ID
+        OTHERWISE
+            Aadd(retorno,"") //Referend ID
+        ENDCASE
 
-   else
-        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
-        Aadd(retorno, oDados["status"]) //Status ultima atualização
-        Aadd(retorno, oDados["error"]) //Status ultima atualização
-        Aadd(retorno, oRestClient:GetResult()) //Array completo
-   endif
+        //Trata a mensagem do ultimo pedido de atualização
+        DO CASE
+         CASE oDados["last_change_request"]["status"] == "QUEUED"
+            Aadd(retorno," A inserção/alteração do título foi recebida pela Liber Connect. Essa operação ainda será validada antes de ser concretizada na plataforma Liber Capital") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "PROCESSING"
+            Aadd(retorno," Uma inserção/alteração dos dados do título está sendo processada pela Plataforma Liber") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "SUCCESS"
+            Aadd(retorno,"A última inserção/alteração dos dados do título foi aceita pela Plataforma Liber") //Referend ID
+        CASE oDados["last_change_request"]["status"] == "FAIL"
+            Aadd(retorno,"A última inserção/alteração dos dados do título foi rejeitada pela Plataforma Liber. Veja o campo errors para obter detalhes sobre as inconsistências encontradas. Os dados do título são mantidos no último estado consistente encontrado.") //Referend ID
+        OTHERWISE
+            Aadd(retorno,"") //Referend ID
+        ENDCASE
 
 
+	else
+		Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+		Aadd(retorno, oDados["error"]) //Status ultima atualização
+		Aadd(retorno, oRestClient:GetResult()) //Array completo
+	endif
 
-
-
-
-
-            
-   
 
 Return retorno
 
@@ -196,71 +276,71 @@ Funcão LCUpdateTitulo
 */
 User Function LCUpdateTitulo(reference_id,vencimento,valor)
 
-    Local cUrl := webserviceURL()
-    Local oRestClient := FWRest():New(cUrl)
-    Local cToken := LCgetToken()
-    Local aHeader := {}
-    Local oDados := NIL
-    Local bObject := {|| JsonObject():New()}
-    Local oJson   := Eval(bObject)
-    Local cBody := ""
-    Local status := ""
-    Local reetorno := ""
-    Local original := U_LcGetTitulo(reference_id)
-    Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices/"+reference_id
-    
-
-    If original["status"]="BLOCKED"
-
-        Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
-        aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
-        AAdd(aHeader, "Accept: */*")
-
-        
-
-        oRestClient:setPath(urlPath)
-        
-        oJson["reference_id"] := reference_id
-        oJson["number"] := original['number']
-        oJson["type"] := original['type']
-        oJson["due_date"] := vencimento
-        oJson["face_value"] := Eval(bObject)
-        oJson["face_value"]["currency"] := "BRL"
-        oJson["face_value"]["value"] := val(valor)
-        oJson["supplier"] := Eval(bObject)
-        oJson["supplier"]["document"] := Eval(bObject)
-        oJson["supplier"]["document"]["type"]:= original["supplier"]["document"]["type"]
-        oJson["supplier"]["document"]["number"]:= original["supplier"]["document"]["number"]
-        oJson["payer"] := Eval(bObject)
-        oJson["payer"]["document"] := Eval(bObject)
-        oJson["payer"]["document"]["type"]:= original["payer"]["document"]["type"]
-        oJson["payer"]["document"]["number"]:= original["payer"]["document"]["number"]
-        
-        
-        cBody := oJson:ToJson()
-        
-        oRestClient:SetPostParams("body")
-        oRestClient:SetPostParams(cBody)
-        
-        
-        FwJSONDeserialize(oRestClient:GetResult(), @oDados)
-        status := left(cvaltochar(oRestClient:GetLastError()),3)
-       
-                
-        Aadd(retorno, oRestClient:GetLastError()) //Status da operação
-        Aadd(retorno, oDados["error"]) //Status ultima atualização
-        Aadd(retorno, oRestClient:GetResult()) //Array completo
+	Local cUrl := webserviceURL()
+	Local oRestClient := FWRest():New(cUrl)
+	Local cToken := LCgetToken()
+	Local aHeader := {}
+	Local oDados := NIL
+	Local bObject := {|| JsonObject():New()}
+	Local oJson   := Eval(bObject)
+	Local cBody := ""
+	Local status := ""
+	Local retorno := ""
+	Local original := U_LcGetTitulo(reference_id)
+	Local urlPath := "v1/"+SuperGetMV('LC_PROGRAM', .F., '')+"/buyers/"+SuperGetMV('LC_DOCUMEN', .F., '')+"/invoices/"+reference_id
 
 
-        return retorno
+	If original["status"]="BLOCKED"
+
+		Aadd(aHeader, 'Authorization:  Bearer ' + cToken)
+		aAdd(aHeader,"Content-Type: application/json; charset=utf-8")
+		AAdd(aHeader, "Accept: /")
 
 
 
-    else
+		oRestClient:setPath(urlPath)
 
-        Return {"Não é possível pois o título não se encontra bloqueado",original}
+		oJson["reference_id"] := reference_id
+		oJson["number"] := original['number']
+		oJson["type"] := original['type']
+		oJson["due_date"] := vencimento
+		oJson["face_value"] := Eval(bObject)
+		oJson["face_value"]["currency"] := "BRL"
+		oJson["face_value"]["value"] := valor
+		oJson["supplier"] := Eval(bObject)
+		oJson["supplier"]["document"] := Eval(bObject)
+		oJson["supplier"]["document"]["type"]:= original["supplier"]["document"]["type"]
+		oJson["supplier"]["document"]["number"]:= original["supplier"]["document"]["number"]
+		oJson["payer"] := Eval(bObject)
+		oJson["payer"]["document"] := Eval(bObject)
+		oJson["payer"]["document"]["type"]:= original["payer"]["document"]["type"]
+		oJson["payer"]["document"]["number"]:= original["payer"]["document"]["number"]
 
-    endif
+
+		cBody := oJson:ToJson()
+
+		oRestClient:SetPostParams("body")
+		oRestClient:SetPostParams(cBody)
+
+
+		FwJSONDeserialize(oRestClient:GetResult(), @oDados)
+		status := left(cvaltochar(oRestClient:GetLastError()),3)
+
+
+		Aadd(retorno, oRestClient:GetLastError()) //Status da operação
+		Aadd(retorno, oDados["error"]) //Status ultima atualização
+		Aadd(retorno, oRestClient:GetResult()) //Array completo
+
+
+		return retorno
+
+
+
+	else
+
+		Return {"Não é possível pois o título não se encontra bloqueado",original}
+
+	endif
 
 Return
 
@@ -269,43 +349,73 @@ Return
 /**Gera o token
 */
 static function LCgetToken()
-    Local token := ""
-    Local urlAuth := "https://auth.connect.staging.libercapital.com.br/"
-    Local aHeader := {}
-    Local client_id := SuperGetMV('LC_CLIID', .F., '') 
-    Local client_secret := SuperGetMV('LC_CLISEC', .F., '') 
-    Local oJSON   := NIL
-    If SuperGetMV('LC_ENV', .F., .F.) 
-        urlAuth := "https://auth.connect.libercapital.com.br/"
-    endif
-    oRest := FWRest():New(urlAuth)
-    oRest:SetPath('oauth2/token')
-    aAdd(aHeader, 'Content-Type: application/x-www-form-urlencoded')
-    cSend := 'grant_type=client_credentials&client_id='+client_id+'&client_secret='+client_secret
-    oRest:SetPostParams(cSend)
-    oRest:Post(aHeader)
-    dados := FwJSONDeserialize(oRest:GetResult(), @oJSON) 
-    token := oJSON["access_token"]
+	Local token := ""
+	Local urlAuth := "https://auth.connect.staging.libercapital.com.br/"
+	Local aHeader := {}
+	Local client_id := SuperGetMV('LC_CLIID', .F., '')
+	Local client_secret := SuperGetMV('LC_CLISEC', .F., '')
+	Local oJSON   := NIL
+	If SuperGetMV('LC_ENV', .F., .F.)
+		urlAuth := "https://auth.connect.libercapital.com.br/"
+	endif
+	oRest := FWRest():New(urlAuth)
+	oRest:SetPath('oauth2/token')
+	aAdd(aHeader, 'Content-Type: application/x-www-form-urlencoded')
+	cSend := 'grant_type=client_credentials&client_id='+client_id+'&client_secret='+client_secret
+	oRest:SetPostParams(cSend)
+	oRest:Post(aHeader)
+	dados := FwJSONDeserialize(oRest:GetResult(), @oJSON)
+	token := oJSON["access_token"]
 return token
 
 
-
 Static Function webserviceURL()
-    
-    Local cUrl := SuperGetMV('LC_URLHOMO', .F., '')
 
-    If SuperGetMV('LC_ENV', .F., .F.) 
-        cUrl := SuperGetMV('LC_URLPROD', .F., '')
-    ENDIF
+	Local cUrl := SuperGetMV('LC_URLHOMO', .F., '')
 
-    If empty(rtrim(cUrl))
-        Aviso('Atenção','Favor configurar os parâmetros LC_URLHOMO, LC_ENV, LC_URLPROD')
-    endif
+	If SuperGetMV('LC_ENV', .F., .F.)
+		cUrl := SuperGetMV('LC_URLPROD', .F., '')
+	ENDIF
+
+	If empty(rtrim(cUrl))
+		Aviso('Atenção','Favor configurar os parâmetros LC_URLHOMO, LC_ENV, LC_URLPROD')
+	endif
 
 Return cUrl
 
 
 
+static function PrintJson(jsonObj)
+	local i, j
+	local names
+	local lenJson
+	local item
+	Local retorno := ""
 
+	lenJson := len(jsonObj)
 
-
+	if lenJson > 0
+		for i := 1 to lenJson
+			retorno += PrintJson(jsonObj[i])
+		next
+	else
+		names := jsonObj:GetNames()
+		for i := 1 to len(names)
+			retorno += "Label - " + names[i]
+			item := jsonObj[names[i]]
+			if ValType(item) == "C"
+				retorno +=  names[i] + " = " + cvaltochar(jsonObj[names[i]])
+			else
+				if ValType(item) == "A"
+					retorno += "Vetor["
+					for j := 1 to len(item)
+						retorno += "Indice " + cValtochar(j)
+						retorno += PrintJson(item[j])
+					next j
+					retorno += "]Vetor"
+				endif
+			endif
+			retorno += CHR(13)+CHR(10)
+		next i
+	endif
+return retorno
